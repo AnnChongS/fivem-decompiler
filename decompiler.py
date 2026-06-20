@@ -185,10 +185,11 @@ def start_fxserver_and_dump(license_key: str, resource_name: str, dump_dir: str,
     setup_stubs()
     ensure_system_resources()
 
+    log_file = open("/tmp/fivem_decompiler_fxserver.log", "w")
     proc = subprocess.Popen(
         [str(RUN_SH)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
         cwd=str(FXSERVER_DIR)
     )
 
