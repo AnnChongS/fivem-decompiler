@@ -13,7 +13,7 @@ import sys
 import re
 
 DUMP_DIR = os.environ.get("DUMP_DIR", "/tmp/fivem_dump/")
-SO_NAME = "libcitizen-scripting-lua54.so"
+SO_NAME = "libcitizen-scripting-lua.so"
 RXP_OFFSET = int(os.environ.get("RXP_OFFSET", "0"), 16) if os.environ.get("RXP_OFFSET") else None
 
 os.makedirs(DUMP_DIR, exist_ok=True)
