@@ -24,7 +24,7 @@ PORT="${PORT:-8080}"
 # ---- 1. Install dependencies ----
 log "Installing dependencies..."
 apt-get update -qq
-apt-get install -y -qq gdb openjdk-21-jre-headless python3 python3-pip python3-venv unzip wget curl > /dev/null 2>&1
+apt-get install -y -qq gdb openjdk-17-jre-headless python3 python3-pip python3-venv unzip wget curl > /dev/null 2>&1
 
 # ---- 2. Install FXServer ----
 if [[ ! -f "$FXSERVER_DIR/run.sh" ]]; then
