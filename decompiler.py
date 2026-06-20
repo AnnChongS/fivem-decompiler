@@ -127,9 +127,12 @@ def scan_memory_for_lua(pid: int, dump_dir: str, timeout: int = 30):
     seen_offsets = set()
     start_time = time.time()
 
+    scan_round = 0
     while time.time() - start_time < timeout:
+        scan_round += 1
         try:
             if not os.path.exists(f"/proc/{pid}/maps"):
+                print(f"[SCAN] /proc/{pid}/maps gone, FXServer exited")
                 break
 
             with open(f"/proc/{pid}/maps", 'r') as maps_f, \
@@ -159,7 +162,8 @@ def scan_memory_for_lua(pid: int, dump_dir: str, timeout: int = 30):
                             if idx == -1:
                                 break
                             abs_offset = start + idx
-                            chunk = data[idx:idx + 65536]
+                            # Read up to 1MB — Lua bytecode can be large
+                            chunk = data[idx:min(idx + 1048576, len(data))]
                             if len(chunk) >= 32 and chunk[4] == 0x54:  # Lua 5.4
                                 fname = f"lua_{abs_offset:016x}.bin"
                                 fpath = os.path.join(dump_dir, fname)
@@ -171,15 +175,22 @@ def scan_memory_for_lua(pid: int, dump_dir: str, timeout: int = 30):
                             idx += 1
                     except (OSError, ValueError):
                         continue
-        except (OSError, ValueError):
-            pass
-        time.sleep(2)
+        except (OSError, ValueError) as e:
+            if scan_round <= 2:
+                print(f"[SCAN] Round {scan_round} error: {e}")
+        time.sleep(1)
 
+    print(f"[SCAN] Completed {scan_round} rounds, found {len(dumped)} Lua files")
     return dumped
 
 
 def start_fxserver_and_dump(license_key: str, resource_name: str, dump_dir: str, timeout: int = 60):
     """Start FXServer, wait for resource load, scan memory, kill"""
+
+    # Kill any leftover FXServer/proot processes and free port 30120
+    subprocess.run(["pkill", "-9", "FXServer"], capture_output=True)
+    subprocess.run(["pkill", "-9", "proot"], capture_output=True)
+    time.sleep(1)
 
     # Ensure stubs and system resources are in place
     setup_stubs()
@@ -193,8 +204,8 @@ def start_fxserver_and_dump(license_key: str, resource_name: str, dump_dir: str,
         cwd=str(FXSERVER_DIR)
     )
 
-    # Wait for FXServer to load
-    time.sleep(8)
+    # Wait for FXServer to start (proot boot is fast)
+    time.sleep(3)
 
     fx_pid = find_fxserver_pid()
     if not fx_pid:
@@ -207,10 +218,7 @@ def start_fxserver_and_dump(license_key: str, resource_name: str, dump_dir: str,
 
     print(f"[+] FXServer PID: {fx_pid}")
 
-    # Give it time to load resources
-    time.sleep(10)
-
-    # Scan memory
+    # Scan memory immediately — bytecode may be freed after luaL_loadbufferx returns
     dumped = scan_memory_for_lua(fx_pid, dump_dir, timeout=timeout)
 
     # Kill
