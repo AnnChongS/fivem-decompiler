@@ -99,26 +99,25 @@ ensure {resource_name}
 
 def find_fxserver_pid():
     """Find the real FXServer PID (not proot)"""
-    for _ in range(10):
+    for _ in range(15):
         try:
             result = subprocess.run(
-                ["pgrep", "-f", "FXServer.*exec"],
+                ["pgrep", "-a", "FXServer"],
                 capture_output=True, text=True, timeout=5
             )
-            for pid in result.stdout.strip().split('\n'):
-                pid = pid.strip()
-                if not pid:
+            for line in result.stdout.strip().split('\n'):
+                line = line.strip()
+                if not line:
                     continue
-                try:
-                    with open(f"/proc/{pid}/cmdline", "rb") as f:
-                        cmdline = f.read().decode(errors='replace')
-                        if 'FXServer' in cmdline and 'server.cfg' in cmdline:
-                            return int(pid)
-                except:
-                    continue
+                parts = line.split()
+                pid_str = parts[0]
+                cmdline = ' '.join(parts[1:])
+                if 'FXServer' in cmdline and '-dumpserver' not in cmdline:
+                    if pid_str.isdigit():
+                        return int(pid_str)
         except:
             pass
-        time.sleep(1)
+        time.sleep(2)
     return None
 
 
