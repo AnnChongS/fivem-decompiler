@@ -81,3 +81,56 @@ Java 21 + unluac 反编译
 - shared/locale.lua: ✅ 75 行
 - shared/safety.lua: ✅ 424 行
 - client/*.lua: ❌ 服务端无法解密
+
+## 下一步目标 (优先级排序)
+
+### 1. [优先] Lua 反混淆/可读化工具
+
+**问题**: unluac 反编译出来的代码虽然语法正确，但变量名全是 `L0_1`, `L1_1`, `L2_1` 这种编译器生成的临时名，函数名丢失，可读性极差。例如：
+
+```lua
+-- 当前输出 (不可读)
+local L0_1, L1_1, L2_1, L3_1
+L0_1 = nil
+L1_1 = nil
+L2_1 = Config
+L2_1 = L2_1.Framework
+if L2_1 == "esx" then
+  L3_1 = exports
+  L3_1 = L3_1["esx_legacy"]
+  ...
+
+-- 目标输出 (可读)
+local framework = nil
+local playerData = nil
+local frameworkName = Config.Framework
+if frameworkName == "esx" then
+  local ESX = exports["esx_legacy"]
+  ...
+```
+
+**方案**:
+- 独立工具，先不整合进 web 流程
+- 分析 unluac 输出，基于上下文推断变量含义
+- 可能的策略：
+  - 从赋值链推断：`L2_1 = Config; L2_1 = L2_1.Framework` → 重命名为 `configFramework`
+  - 从 API 调用推断：`L3_1 = exports["esx_legacy"]` → 重命名为 `ESX`
+  - 从函数参数推断：事件处理器的回调参数
+  - 保留有意义的局部变量名（unluac 有时能恢复）
+- 工具做好稳定后再整合进 app.py pipeline
+
+### 2. [后续] Windows 客户端解密
+
+**目标**: 解密 `client_scripts`（服务端无法解密的 FXAP）
+
+**方案**:
+- 用户提供 Windows 机器的用户名和密码
+- 在 Windows 上运行 FiveM 客户端连接到 FXServer
+- 客户端内存中包含解密后的 Lua 源码
+- 通过 Lua executor 或进程内存 dump 提取
+
+**前置条件**: 等用户提供 Windows 凭据后开始
+
+---
+
+**下次调用时**: 一叫读 handoff 就知道先做反混淆工具，再做 Windows 客户端解密。
